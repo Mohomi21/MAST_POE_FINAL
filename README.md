@@ -1,4 +1,4 @@
-# A Taste With Chef Christoffel (Expo React Native)
+# A Taste With Chef Christoffel 
 
 Short description
 - Mobile app (Expo + React Native + TypeScript) for managing a restaurant menu. Provides a home view with statistics, a form to add menu items, and a management screen to edit/delete items. Uses an in-memory global menu store.
