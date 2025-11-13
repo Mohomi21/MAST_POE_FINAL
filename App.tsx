@@ -1,90 +1,250 @@
-import React, { useState } from 'react';
-import {StyleSheet, Text, View, Pressable, SafeAreaView, ImageBackground, TextInput, ScrollView, Alert,} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {StyleSheet,Text,View,Pressable,SafeAreaView,ImageBackground,TextInput,ScrollView,Alert,} from 'react-native';
 
 // Type for menu items
 type MenuItem = {
-  id: string;
-  dishName: string;
-  description: string;
-  course: string;
-  price: number;
+    id: string;
+    dishName: string;
+    description: string;
+    course: string;
+    price: number;
 };
 
-export default function App(): React.ReactElement {
+let globalMenuItems: MenuItem[] = [
+  { id: '1', dishName: 'Tomato Bruschetta', description: 'Grilled bread topped with fresh tomato and basil.', course: 'Starters', price: 55 },
+  { id: '2', dishName: 'Seared Salmon', description: 'Pan seared salmon with lemon butter.', course: 'Mains', price: 165 },
+  { id: '3', dishName: 'Chocolate Mousse', description: 'Light and airy chocolate mousse.', course: 'Dessert', price: 70 },
+];
+
+function addGlobalMenuItem(item: MenuItem) {
+  globalMenuItems.push(item);
+}
+
+function deleteGlobalMenuItemById(id: string) {
+  globalMenuItems = globalMenuItems.filter(i => i.id !== id);
+}
+
+function updateGlobalMenuItem(updated: MenuItem) {
+  for (let i = 0; i < globalMenuItems.length; i++) {
+    if (globalMenuItems[i].id === updated.id) {
+      globalMenuItems[i] = updated;
+      break;
+    }
+  }
+}
+
+function getGlobalMenuItems(): MenuItem[] {
+  return [...globalMenuItems];
+}
+
+// AddMenuScreen component moved outside of App
+function AddMenuScreen({onDone, refreshHome}: {onDone: () => void; refreshHome: () => void}) {
+  const courses: string[] = ['Starters', 'Mains', 'Dessert'];
   const [mealName, setMealName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [price, setPrice] = useState<string>('');
   const [selectedCourse, setSelectedCourse] = useState<string>('');
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [showMenu, setShowMenu] = useState<boolean>(false); // toggles screens
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [items, setItems] = useState<MenuItem[]>(getGlobalMenuItems());
 
-  const courses: string[] = ['Starters', 'Mains', 'Dessert'];
+  useEffect(() => {
+    setItems(getGlobalMenuItems());
+  }, []);
 
-  // Add new menu item
-  const addMenuItem = (): void => {
-    if (!mealName.trim() || !description.trim() || !selectedCourse || !price) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    const parsedPrice = parseFloat(price);
-    if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      Alert.alert('Error', 'Please enter a valid price');
-      return;
-    }
-
-    const newItem: MenuItem = {
-      id: Date.now().toString(),
-      dishName: mealName.trim(),
-      description: description.trim(),
-      course: selectedCourse,
-      price: parsedPrice,
-    };
-
-    setMenuItems([...menuItems, newItem]);
+  function resetForm() {
     setMealName('');
     setDescription('');
     setPrice('');
     setSelectedCourse('');
-    Alert.alert('Success', 'Menu item added!');
-  };
+    setEditingId(null);
+  }
 
-  // Delete a menu item
-  const deleteMenuItem = (id: string): void => {
-    setMenuItems(menuItems.filter(item => item.id !== id));
-  };
+  function validateForm(): boolean {
+    if (!mealName.trim()) { Alert.alert('Error', 'Please enter a dish name'); return false; }
+    if (!description.trim()) { Alert.alert('Error', 'Please enter a description'); return false; }
+    if (!selectedCourse) { Alert.alert('Error', 'Please select a course'); return false; }
+    const parsedPrice = parseFloat(price);
+    if (!price || isNaN(parsedPrice) || parsedPrice <= 0) { Alert.alert('Error', 'Please enter a valid price'); return false; }
+    return true;
+  }
+
+  function handleAddOrUpdate() {
+    if (!validateForm()) return;
+    const parsedPrice = parseFloat(price);
+    if (editingId) {
+      const updated: MenuItem = { id: editingId, dishName: mealName.trim(), description: description.trim(), course: selectedCourse, price: parsedPrice };
+      updateGlobalMenuItem(updated);
+      setItems(getGlobalMenuItems());
+      Alert.alert('Success', 'Menu item updated');
+    } else {
+      const newItem: MenuItem = { id: Date.now().toString(), dishName: mealName.trim(), description: description.trim(), course: selectedCourse, price: parsedPrice };
+      addGlobalMenuItem(newItem);
+      setItems(getGlobalMenuItems());
+      Alert.alert('Success', 'Menu item added');
+    }
+    resetForm();
+    refreshHome();
+  }
+
+  function handleEdit(item: MenuItem) {
+    setEditingId(item.id);
+    setMealName(item.dishName);
+    setDescription(item.description);
+    setPrice(item.price.toString());
+    setSelectedCourse(item.course);
+  }
+
+  function handleDelete(id: string) {
+    deleteGlobalMenuItemById(id);
+    setItems(getGlobalMenuItems());
+    refreshHome();
+  }
 
   return (
-    <ImageBackground source={require('./assets/snap.jpg')} style={styles.background}>
+    <View style={styles.formContainer}>
+      <View style={styles.menuPageHeader}>
+        <Text style={styles.formTitle}>{editingId ? 'Edit Menu Item' : 'Add New Menu Item'}</Text>
+        <Pressable style={styles.backButton} onPress={onDone}><Text style={styles.backButtonText}>Back</Text></Pressable>
+      </View>
+
+      <Text style={styles.label}>Dish Name:</Text>
+      <TextInput style={styles.input} value={mealName} onChangeText={setMealName} placeholder="Enter your preferred dish name" placeholderTextColor="#999" />
+
+      <Text style={styles.label}>Description:</Text>
+      <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Enter meal description" placeholderTextColor="#999" multiline />
+
+      <Text style={styles.label}>Course:</Text>
+      <View style={styles.courseContainer}>
+        {courses.map(course => (
+          <Pressable key={course} style={[styles.courseButton, selectedCourse === course && styles.courseButtonSelected]} onPress={() => setSelectedCourse(course)}>
+            <Text style={[styles.courseButtonText, selectedCourse === course && styles.courseButtonTextSelected]}>{course}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={styles.label}>Price (R):</Text>
+      <TextInput style={styles.input} value={price} onChangeText={setPrice} placeholder="Enter price (e.g. 100.00)" placeholderTextColor="#999" keyboardType="numeric" />
+
+      <Pressable style={styles.addButton} onPress={handleAddOrUpdate}>
+        <Text style={styles.addButtonText}>{editingId ? 'Update Item' : 'Add to Menu'}</Text>
+      </Pressable>
+
+      <Text style={[styles.menuTitle, {marginTop: 16}]}>Existing Items</Text>
+      {items.length === 0 ? (
+        <Text style={styles.emptyText}>No items</Text>
+      ) : (
+        items.map(it => (
+          <View key={it.id} style={styles.menuItem}>
+            <View style={styles.menuItemHeader}>
+              <Text style={styles.dishName}>{it.dishName}</Text>
+              <Text style={styles.price}>R{it.price.toFixed(2)}</Text>
+            </View>
+            <Text style={styles.course}>Course: {it.course}</Text>
+            <Text style={styles.description}>{it.description}</Text>
+            <View style={{flexDirection: 'row', justifyContent: 'flex-end'}}>
+              <Pressable style={[styles.deleteButton, {marginRight: 8}]} onPress={() => handleEdit(it)}><Text style={styles.deleteButtonText}>Edit</Text></Pressable>
+              <Pressable style={styles.deleteButton} onPress={() => handleDelete(it.id)}><Text style={styles.deleteButtonText}>Delete</Text></Pressable>
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+}
+
+// Main App component
+export default function App(): React.ReactElement {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(getGlobalMenuItems());
+  const [screen, setScreen] = useState<'home' | 'add'>('home');
+  const courses: string[] = ['Starters', 'Mains', 'Dessert'];
+
+  useEffect(() => {
+    setMenuItems(getGlobalMenuItems());
+  }, [screen]);
+
+  function computeTotalItems(): number {
+    let total = 0;
+    const items = getGlobalMenuItems();
+    for (let i = 0; i < items.length; i++) {
+      total += 1;
+    }
+    return total;
+  }
+
+  function computeAveragePricePerCourse(): {[course: string]: number} {
+    const acc: {[key: string]: {sum: number; count: number}} = {};
+    
+    for (let i = 0; i < courses.length; i++) {
+      acc[courses[i]] = {sum: 0, count: 0};
+    }
+
+    const items = getGlobalMenuItems();
+    let idx = 0;
+    while (idx < items.length) {
+      const it = items[idx];
+      if (acc[it.course]) {
+        acc[it.course].sum += it.price;
+        acc[it.course].count += 1;
+      }
+      idx++;
+    }
+
+    const averages: {[course: string]: number} = {};
+    for (const key in acc) {
+      const {sum, count} = acc[key];
+      averages[key] = count === 0 ? 0 : Math.round((sum / count) * 100) / 100;
+    }
+    return averages;
+  }
+
+  function removeItem(id: string) {
+    deleteGlobalMenuItemById(id);
+    setMenuItems(getGlobalMenuItems());
+  }
+
+  function goToAddScreen() {
+    setScreen('add');
+  }
+
+  function goToHomeScreen() {
+    setScreen('home');
+    setMenuItems(getGlobalMenuItems());
+  }
+
+  const averages = computeAveragePricePerCourse();
+  const totalItems = computeTotalItems();
+
+  return (
+    <ImageBackground
+      source={require('./assets/snap.jpg')}
+      style={styles.background}
+    >
       <SafeAreaView style={styles.container}>
         <ScrollView style={styles.scrollView}>
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.appTitle}>
               A Taste With <Text style={styles.goldText}>Chef Christoffel</Text>
             </Text>
-            <Text style={styles.subtitle}>
-              {showMenu
-                ? 'View the delicious menu below'
-                : 'Add your preferred dish to the menu'}
-            </Text>
+            <Text style={styles.subtitle}>Select your preferred course/meal</Text>
           </View>
 
-          {/* Toggle Button */}
-          <Pressable
-            style={[styles.switchButton, { backgroundColor: showMenu ? '#444' : '#FFD700' }]}
-            onPress={() => setShowMenu(!showMenu)}
-          >
-            <Text style={[styles.switchButtonText, { color: showMenu ? '#FFD700' : '#000' }]}>
-              {showMenu ? 'Back to Add Form' : 'View Chef’s Menu'}
-            </Text>
-          </Pressable>
+          <View style={styles.statsContainer}>
+            <Text style={styles.statText}>Total menu items: {totalItems}</Text>
+            <Text style={styles.statText}>Average price by course:</Text>
+            {courses.map(c => (
+              <Text key={c} style={styles.avgText}>
+                {c}: R{averages[c] !== undefined ? averages[c].toFixed(2) : '0.00'}
+              </Text>
+            ))}
+          </View>
 
-          {/* Conditional Rendering */}
-          {showMenu ? (
-            // Menu Screen
-            <View style={styles.menuContainer}>
-              <Text style={styles.menuTitle}>Chef’s Menu</Text>
+          <View style={styles.menuContainer}>
+            <Text style={styles.menuTitle}>Chef's Menu</Text>
+            <Pressable style={styles.viewMenuButton} onPress={goToAddScreen}>
+              <Text style={styles.viewMenuButtonText}>Go to Add / Manage Items</Text>
+            </Pressable>
+
+            <View style={{marginTop: 12}}>
               {menuItems.length === 0 ? (
                 <Text style={styles.emptyText}>No menu items added yet.</Text>
               ) : (
@@ -97,74 +257,17 @@ export default function App(): React.ReactElement {
                     <Text style={styles.course}>Course: {item.course}</Text>
                     <Text style={styles.description}>{item.description}</Text>
 
-                    <Pressable style={styles.deleteButton} onPress={() => deleteMenuItem(item.id)}>
+                    <Pressable style={styles.deleteButton} onPress={() => removeItem(item.id)}>
                       <Text style={styles.deleteButtonText}>Delete</Text>
                     </Pressable>
                   </View>
                 ))
               )}
             </View>
-          ) : (
-            // Add Form Screen
-            <View style={styles.formContainer}>
-              <Text style={styles.formTitle}>Add A New Menu Item</Text>
+          </View>
 
-              <Text style={styles.label}>Dish Name:</Text>
-              <TextInput
-                style={styles.input}
-                value={mealName}
-                onChangeText={setMealName}
-                placeholder="Enter dish name"
-                placeholderTextColor="#999"
-              />
-
-              <Text style={styles.label}>Description:</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Enter description"
-                placeholderTextColor="#999"
-                multiline
-              />
-
-              <Text style={styles.label}>Course:</Text>
-              <View style={styles.courseContainer}>
-                {courses.map(course => (
-                  <Pressable
-                    key={course}
-                    style={[
-                      styles.courseButton,
-                      selectedCourse === course && styles.courseButtonSelected,
-                    ]}
-                    onPress={() => setSelectedCourse(course)}
-                  >
-                    <Text
-                      style={[
-                        styles.courseButtonText,
-                        selectedCourse === course && styles.courseButtonTextSelected,
-                      ]}
-                    >
-                      {course}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              <Text style={styles.label}>Price (R):</Text>
-              <TextInput
-                style={styles.input}
-                value={price}
-                onChangeText={setPrice}
-                placeholder="Enter price (e.g. 100.00)"
-                placeholderTextColor="#999"
-                keyboardType="numeric"
-              />
-
-              <Pressable style={styles.addButton} onPress={addMenuItem}>
-                <Text style={styles.addButtonText}>Add to Menu</Text>
-              </Pressable>
-            </View>
+          {screen === 'add' && (
+            <AddMenuScreen onDone={goToHomeScreen} refreshHome={() => setMenuItems(getGlobalMenuItems())} />
           )}
         </ScrollView>
       </SafeAreaView>
@@ -172,6 +275,7 @@ export default function App(): React.ReactElement {
   );
 }
 
+// Styles reused from previous file
 const styles = StyleSheet.create({
   background: {
     flex: 1,
@@ -222,6 +326,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 16,
     textAlign: 'center',
+  },
+  menuPageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  backButton: {
+    backgroundColor: '#444',
+    padding: 8,
+    borderRadius: 6,
+  },
+  backButtonText: {
+    color: '#FFD700',
+    fontWeight: 'bold',
+  },
+  statsContainer: {
+    backgroundColor: '#1A1A1A',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  statText: {
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  avgText: {
+    color: '#FFD700',
+    fontSize: 14,
   },
   label: {
     fontSize: 16,
@@ -279,6 +413,17 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: '#000',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  viewMenuButton: {
+    backgroundColor: '#FFD700',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  viewMenuButtonText: {
+    color: '#000',
     fontWeight: 'bold',
   },
   menuContainer: {
