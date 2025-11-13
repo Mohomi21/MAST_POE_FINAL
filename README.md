@@ -1,4 +1,4 @@
-# MAST Part 2 — A Taste With Chef Christofel
+# MAST Final Poe  — A Taste With Chef Christofel
 
 A lightweight React Native app for adding and viewing chef menu items. Users can add dishes with name, description, course and price, view the current menu, and delete items.
 
